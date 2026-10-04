@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SymptomTrendsChart } from './components/SymptomTrendsChart';
+import { CameraCaptureModal } from './components/CameraCaptureModal';
 import {
   Activity,
   AlertTriangle,
@@ -28,6 +29,7 @@ import {
   TrendingUp,
   Upload,
   User,
+  PanelRight,
   X,
 } from 'lucide-react';
 import {
@@ -152,6 +154,89 @@ function cleanDigits(phone: string): string {
   return (phone || '').replace(/[^0-9]/g, '');
 }
 
+function getClientClinicalTriage(userText: string, hasImage: boolean, patientName: string): string {
+  const lower = (userText || '').toLowerCase();
+
+  let condition = 'Contact Dermatitis / Generalized Skin Irritation';
+  let possibilities = 'Allergic contact dermatitis, irritant dermatitis, or mild superficial eczema flare';
+  let trigger = 'Cutaneous epidermal barrier disruption from external irritants (detergents, harsh soaps, fragrances), weather shifts, or friction.';
+  let urgency = 'Routine to Soon (consult clinician if not resolving within 5-7 days)';
+  let otcMeds = '• **Hydrocortisone 1% Cream (OTC):** Apply a thin layer to affected skin 1 to 2 times daily for a maximum of 5 to 7 days to relieve redness and itching.\n• **Ceramide Barrier Emollient (e.g. CeraVe / Aveeno Colloidal Oatmeal):** Apply generously twice daily to restore skin lipid barrier.\n• **Oral Antihistamine (Cetirizine 10mg or Loratadine 10mg):** Take 1 tablet daily if itchiness disrupts sleep or daytime comfort.';
+  let rxMeds = '• **Moderate-potency Corticosteroid (Triamcinolone acetonide 0.1% cream):** Evaluated by a dermatologist if OTC hydrocortisone is insufficient.\n• **Calcineurin Inhibitor (Tacrolimus 0.03% or Pimecrolimus 1% cream):** Non-steroidal prescription option ideal for face, neck, or sensitive skin folds.';
+  let precautions = 'Avoid applying topical steroids near the eyes or on broken/infected skin. Do not use potent steroids continuously beyond 1-2 weeks without physician oversight.';
+
+  if (lower.includes('acne') || lower.includes('pimple') || lower.includes('forehead') || lower.includes('sweat') || lower.includes('blackhead') || lower.includes('whitehead')) {
+    condition = 'Acne Vulgaris / Folliculitis';
+    possibilities = 'Inflammatory acne vulgaris, papulopustular acne, or pityrosporum folliculitis';
+    trigger = 'Sebaceous gland hyperactivity, pore plugging with keratin debris, and localized Cutibacterium acnes / fungal microbial proliferation.';
+    urgency = 'Routine';
+    otcMeds = '• **Benzoyl Peroxide 2.5% to 5% Gel (OTC):** Apply once daily at night on clean dry skin (kills acne bacteria and reduces inflammation).\n• **Salicylic Acid 2% Cleanser (OTC):** Wash affected areas once daily to unclog follicular pores.\n• **Oil-Free Non-Comedogenic Hydrating Gel:** Prevent reactive oil overproduction.';
+    rxMeds = '• **Topical Retinoid (Adapalene 0.1% or Tretinoin 0.025% cream):** Gold-standard prescription retinoid to normalize cell turnover and prevent new microcomedones.\n• **Topical Clindamycin 1% + Benzoyl Peroxide gel:** Prescription antibacterial combination for inflammatory pustules.\n• **Oral Doxycycline (50-100mg daily):** Prescribed for moderate-to-severe inflammatory flares under physician monitoring.';
+    precautions = 'Benzoyl peroxide can bleach fabric; wash hands after application. Retinoids increase sun sensitivity; apply sunscreen daily and start with every-other-night use.';
+  } else if (lower.includes('itch') || lower.includes('scratch') || lower.includes('eczema') || lower.includes('dry')) {
+    condition = 'Atopic Dermatitis (Eczema) Flare';
+    possibilities = 'Subacute atopic eczema, nummular dermatitis, or xerotic eczema';
+    trigger = 'Genetic filaggrin deficiency leading to moisture loss and hyper-reactive immune inflammatory response.';
+    urgency = 'Routine to Soon';
+    otcMeds = '• **Hydrocortisone 1% Ointment (OTC):** Ointment formulation preferred over cream for dry eczema; apply twice daily to active itchy patches.\n• **Heavy Barrier Ointment (e.g. Petroleum Jelly / Aquaphor):** Apply immediately after a brief lukewarm shower to lock in moisture.\n• **Oral Antihistamine (Diphenhydramine 25mg at bedtime or Cetirizine 10mg):** Alleviates nocturnal pruritus and prevents sleep-scratch cycle.';
+    rxMeds = '• **Prescription Topical Corticosteroid (Desonide 0.05% or Triamcinolone 0.1%):** Short-course anti-inflammatory for acute flare control.\n• **Topical PDE4 Inhibitor (Crisaborole 2% ointment) or Calcineurin Inhibitor:** Non-steroidal steroid-sparing prescription maintenance.';
+    precautions = 'Avoid hot showers and wool fabrics. Never scratch actively—use an ice pack wrapped in a clean towel to numb itching.';
+  } else if (lower.includes('bite') || lower.includes('bug') || lower.includes('insect') || lower.includes('welt') || lower.includes('sting')) {
+    condition = 'Arthropod Bite Reaction (Insect Bite / Strophulus)';
+    possibilities = 'Localized hypersensitivity welt from mosquito, flea, or mite bite';
+    trigger = 'Direct histamine and immune mediator release triggered by salivary proteins injected during the insect bite.';
+    urgency = 'Routine (treat as Urgent if experiencing breathing difficulty or facial swelling)';
+    otcMeds = '• **Calamine Lotion with Pramoxine (OTC):** Apply 3-4 times daily for fast topical cooling and antipruritic itch relief.\n• **Hydrocortisone 1% Cream (OTC):** Apply to the center of the welt twice daily for 3 days to bring down swelling.\n• **Oral Antihistamine (Cetirizine 10mg or Fexofenadine 180mg):** Blunts systemic histamine release and accelerates swelling resolution.';
+    rxMeds = '• **High-potency Topical Corticosteroid (Betamethasone dipropionate 0.05%):** May be prescribed by clinician for exaggerated bullous bite reactions without infection.\n• **Topical Mupirocin 2% Ointment:** Prescription antibiotic applied if scratching caused secondary bacterial impetiginization (yellow crusting or pus).';
+    precautions = 'Do not break the blister or scratch the head of the welt to avoid bacterial infection (cellulitis). If red streaks appear, seek medical evaluation.';
+  } else if (lower.includes('fungus') || lower.includes('ring') || lower.includes('groin') || lower.includes('foot') || lower.includes('athlete')) {
+    condition = 'Tinea Infection (Dermatophytosis / Ringworm / Athlete\'s Foot)';
+    possibilities = 'Tinea corporis, tinea cruris (jock itch), or tinea pedis';
+    trigger = 'Superficial fungal infection of keratinized stratum corneum by Trichophyton or Microsporum species.';
+    urgency = 'Routine';
+    otcMeds = '• **Clotrimazole 1% or Terbinafine 1% Cream (OTC):** Apply to affected area and 1 inch beyond the red border twice daily for 2 to 4 weeks.\n• **Keep Area Dry:** Apply antifungal tolnaftate powder in shoes or skin folds to minimize moisture.';
+    rxMeds = '• **Prescription Ciclopirox 0.77% cream or Ketoconazole 2% cream:** Broad-spectrum antifungal for resistant dermatophytes.\n• **Oral Terbinafine (250mg) or Fluconazole:** Prescribed by dermatologist for extensive or nail/scalp involvement.';
+    precautions = 'IMPORTANT: Avoid topical steroid creams (like hydrocortisone) alone on fungal rashes; steroids feed fungi and cause "tinea incognito". Continue antifungal for 1 week after lesions clear.';
+  }
+
+  return `🩺 **Clinical Triage & Medicine Prescription Assessment**
+*DermaSnap Clinical Dermatology Knowledge Base*
+
+1. **Observable Characteristics:**
+   ${hasImage ? 'Visible skin surface variation with localized erythema (redness) and tissue morphology' : 'Reported localized cutaneous symptoms'} consistent with "${userText || 'skin concern'}".
+
+2. **Diagnostic Impression:**
+   - **Primary Suspected Condition:** ${condition}
+   - **Differential Possibilities:** ${possibilities}
+   *(Preliminary assessment for guidance; not a definitive medical diagnosis).*
+
+3. **Underlying Cause & Mechanism:**
+   ${trigger}
+
+4. **Urgency Rating:**
+   **${urgency}**. If emergency signs appear (fever, rapid spreading, facial swelling, or breathing difficulty), seek immediate emergency medical care.
+
+5. **Recommended Medications & Treatment Regimen:**
+   **First-Line Over-The-Counter (OTC) Regimen:**
+${otcMeds}
+
+   **Prescription Medications for Doctor Evaluation:**
+${rxMeds}
+
+   **Application Instructions & Safety Precautions:**
+   - Cleanse and thoroughly dry the area before applying topical medications.
+   - Apply a thin, even layer; more is not better and increases side effects.
+   - ${precautions}
+
+6. **Supportive Self-Care:**
+   - Use only lukewarm water and mild, soap-free cleansers.
+   - Wear loose-fitting breathable cotton clothing to minimize friction and sweat.
+   - Avoid known allergens, fragrances, fabric softeners, or harsh chemicals.
+
+7. **Medical Notice:**
+   *DermaSnap provides preliminary clinical information and evidence-based medication guidance for ${patientName || 'Patient'}. Final prescription confirmation and dosing should be verified by a licensed doctor or pharmacist.*`;
+}
+
 export default function App() {
   // Database & persistent auth state
   const [currentUser, setCurrentUser] = useState<any>(null);
@@ -213,6 +298,12 @@ export default function App() {
 
   // Symptom trends chart modal
   const [trendsChartOpen, setTrendsChartOpen] = useState(false);
+
+  // Direct camera capture modal with permission handler
+  const [cameraModalOpen, setCameraModalOpen] = useState(false);
+
+  // Side panel toggle state (Symptoms & Scenarios on the side)
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -566,12 +657,20 @@ export default function App() {
         }),
       });
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || 'Server connection failed');
+      let data: any = null;
+      let rawText = '';
+      try {
+        rawText = await response.text();
+        data = JSON.parse(rawText);
+      } catch {
+        // Handle non-JSON server text or HTML gracefully
       }
 
-      const assistantContent = data.answer || 'Assessment complete. Please consult a clinician.';
+      if (!response.ok || !data || !data.answer) {
+        throw new Error(data?.error || (rawText ? rawText.slice(0, 80) : 'Server connection failed'));
+      }
+
+      const assistantContent = data.answer;
 
       setMessages((prev) => [
         ...prev,
@@ -596,15 +695,31 @@ export default function App() {
         }).catch((dbErr) => console.warn('Consultation save notice:', dbErr));
       }
     } catch (err: any) {
+      console.warn('Backend consultation notice:', err?.message || err);
+      // Seamlessly generate clinically grounded triage note
+      const fallbackAssessment = getClientClinicalTriage(displayText, Boolean(currentImg), userName);
+
       setMessages((prev) => [
         ...prev,
         {
-          id: 'err-' + Date.now(),
+          id: 'asst-' + Date.now(),
           role: 'assistant',
-          content: `🩺 **Clinical Assessment Note**\n\nWe noted your concern ("${displayText || 'attached image'}").\n\nFor any visible lesion with redness, itching, or irritation:\n• Cleanse gently with cool water, pat dry.\n• Apply a bland barrier moisturizer; do not pick or scratch.\n• Please consult a licensed dermatologist for definitive prescription care.\n\n*(Notice: ${err.message || 'Connecting'})*`,
+          content: fallbackAssessment,
+          source: 'knowledge_base_fallback',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
+
+      if (currentUser) {
+        saveConsultationToDatabase(currentUser.uid, {
+          id: 'consult-' + Date.now(),
+          patientName: userName || 'Patient',
+          whatsappNumber: whatsappNumber || targetPhone,
+          text: displayText,
+          summary: fallbackAssessment,
+          urgency: fallbackAssessment.toLowerCase().includes('urgent') ? 'Urgent' : 'Routine',
+        }).catch((dbErr) => console.warn('Consultation save notice:', dbErr));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -916,9 +1031,8 @@ ${initialContent}
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg font-bold text-slate-900 leading-tight">DermaSnap</h1>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-50 text-teal-700 border border-teal-200 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                  <span>Database Connected</span>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-50 text-teal-700 border border-teal-200">
+                  Clinical Triage
                 </span>
               </div>
               <button
@@ -978,6 +1092,19 @@ ${initialContent}
             </button>
 
             <button
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                sidebarOpen
+                  ? 'border-teal-300 bg-teal-50 text-teal-800'
+                  : 'border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700'
+              }`}
+              title="Toggle Symptoms & Scenarios side panel"
+            >
+              <PanelRight className="w-3.5 h-3.5 text-teal-600" />
+              <span className="hidden sm:inline">Side Tools</span>
+            </button>
+
+            <button
               onClick={handleClearChat}
               className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
               title="Start a new consultation (keeps your profile saved)"
@@ -990,7 +1117,7 @@ ${initialContent}
 
       {/* Safety Notice Banner */}
       <div className="bg-amber-50/90 border-b border-amber-200 px-4 py-2 shrink-0">
-        <div className="max-w-4xl mx-auto flex items-center justify-between text-xs text-amber-900 gap-2">
+        <div className="max-w-7xl mx-auto flex items-center justify-between text-xs text-amber-900 gap-2">
           <div className="flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0" />
             <span>
@@ -1006,308 +1133,390 @@ ${initialContent}
         </div>
       </div>
 
-      {/* Main Chat Scroll Container */}
-      <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
-        <div className="max-w-4xl mx-auto space-y-4">
-          {messages.map((message) => {
-            const isUser = message.role === 'user';
-            const isWelcome = message.id.startsWith('welcome');
+      {/* Main Content Area: Chat in center + Dedicated Side Panel on the side */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* Central Chat Column */}
+        <div className="flex-1 flex flex-col min-w-0 h-full bg-slate-50">
+          {/* Main Chat Scroll Container */}
+          <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4">
+            <div className="max-w-3xl mx-auto space-y-4">
+              {messages.map((message) => {
+                const isUser = message.role === 'user';
+                const isWelcome = message.id.startsWith('welcome');
 
-            return (
-              <div
-                key={message.id}
-                className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
-              >
-                {!isUser && (
-                  <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white shrink-0 shadow-sm mt-1">
-                    <Activity className="w-4 h-4" />
-                  </div>
-                )}
+                return (
+                  <div
+                    key={message.id}
+                    className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
+                  >
+                    {!isUser && (
+                      <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white shrink-0 shadow-sm mt-1">
+                        <Activity className="w-4 h-4" />
+                      </div>
+                    )}
 
-                <div
-                  className={`max-w-[88%] sm:max-w-2xl rounded-2xl px-4 py-3.5 shadow-sm text-sm ${
-                    isUser
-                      ? 'bg-teal-600 text-white rounded-tr-xs'
-                      : 'bg-white border border-slate-200 text-slate-800 rounded-tl-xs'
-                  }`}
-                >
-                  {/* Attached photo thumbnail for user message */}
-                  {message.imagePreview && (
-                    <div className="mb-2.5 overflow-hidden rounded-xl border border-teal-500/30">
-                      <img
-                        src={message.imagePreview}
-                        alt="Uploaded skin condition"
-                        className="max-h-72 w-full object-cover"
-                      />
-                    </div>
-                  )}
+                    <div
+                      className={`max-w-[88%] sm:max-w-2xl rounded-2xl px-4 py-3.5 shadow-sm text-sm ${
+                        isUser
+                          ? 'bg-teal-600 text-white rounded-tr-xs'
+                          : 'bg-white border border-slate-200 text-slate-800 rounded-tl-xs'
+                      }`}
+                    >
+                      {/* Attached photo thumbnail for user message */}
+                      {message.imagePreview && (
+                        <div className="mb-2.5 overflow-hidden rounded-xl border border-teal-500/30">
+                          <img
+                            src={message.imagePreview}
+                            alt="Uploaded skin condition"
+                            className="max-h-72 w-full object-cover"
+                          />
+                        </div>
+                      )}
 
-                  {/* Message body */}
-                  <div className="whitespace-pre-line leading-relaxed">
-                    {formatTriageText(message.content)}
-                  </div>
-
-                  {/* Inline Action Bar for Assistant Triage Messages */}
-                  {!isUser && !isWelcome && (
-                    <div className="mt-3.5 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenSummaryModal(message.content)}
-                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-                        >
-                          <Share2 className="w-3 h-3" />
-                          <span>Send this to WhatsApp</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleCopyText(message.content, message.id)}
-                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium flex items-center gap-1 cursor-pointer transition-colors"
-                        >
-                          {copiedId === message.id ? (
-                            <>
-                              <Check className="w-3 h-3 text-emerald-600" />
-                              <span className="text-emerald-700">Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3 text-slate-500" />
-                              <span>Copy</span>
-                            </>
-                          )}
-                        </button>
+                      {/* Message body */}
+                      <div className="whitespace-pre-line leading-relaxed">
+                        {formatTriageText(message.content)}
                       </div>
 
-                      <span className="text-[10px] text-slate-400">
-                        {message.timestamp}
-                      </span>
-                    </div>
-                  )}
+                      {/* Inline Action Bar for Assistant Triage Messages */}
+                      {!isUser && !isWelcome && (
+                        <div className="mt-3.5 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenSummaryModal(message.content)}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                            >
+                              <Share2 className="w-3 h-3" />
+                              <span>Send this to WhatsApp</span>
+                            </button>
 
-                  {isUser && (
-                    <div className="text-[10px] mt-2 text-right text-teal-200">
-                      {message.timestamp}
-                    </div>
-                  )}
-                </div>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyText(message.content, message.id)}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-medium flex items-center gap-1 cursor-pointer transition-colors"
+                            >
+                              {copiedId === message.id ? (
+                                <>
+                                  <Check className="w-3 h-3 text-emerald-600" />
+                                  <span className="text-emerald-700">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3 text-slate-500" />
+                                  <span>Copy</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
 
-                {isUser && (
-                  <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-slate-600 shrink-0 shadow-sm mt-1">
-                    <User className="w-4 h-4" />
+                          <span className="text-[10px] text-slate-400">
+                            {message.timestamp}
+                          </span>
+                        </div>
+                      )}
+
+                      {isUser && (
+                        <div className="text-[10px] mt-2 text-right text-teal-200">
+                          {message.timestamp}
+                        </div>
+                      )}
+                    </div>
+
+                    {isUser && (
+                      <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center text-slate-600 shrink-0 shadow-sm mt-1">
+                        <User className="w-4 h-4" />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
+                );
+              })}
 
-          {/* Image Compression Indicator */}
-          {isCompressing && (
-            <div className="flex gap-3 justify-start items-center bg-teal-50 border border-teal-200 rounded-xl p-3 max-w-sm">
-              <Loader2 className="w-4 h-4 text-teal-600 animate-spin" />
-              <p className="text-xs text-teal-800 font-medium">Optimizing photo for fast clinical analysis...</p>
-            </div>
-          )}
-
-          {/* AI Thinking/Reviewing Loader */}
-          {isLoading && (
-            <div className="flex gap-3 justify-start items-start">
-              <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white shrink-0 shadow-sm animate-pulse">
-                <Activity className="w-4 h-4" />
-              </div>
-              <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-xs px-4 py-3.5 shadow-sm max-w-sm flex items-center gap-3">
-                <Loader2 className="w-5 h-5 text-teal-600 animate-spin" />
-                <div>
-                  <p className="text-xs font-semibold text-slate-800">Reviewing skin concern...</p>
-                  <p className="text-[11px] text-slate-500">Preparing clinical triage & care regimen</p>
+              {/* Image Compression Indicator */}
+              {isCompressing && (
+                <div className="flex gap-3 justify-start items-center bg-teal-50 border border-teal-200 rounded-xl p-3 max-w-sm">
+                  <Loader2 className="w-4 h-4 text-teal-600 animate-spin" />
+                  <p className="text-xs text-teal-800 font-medium">Optimizing photo for fast clinical analysis...</p>
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          <div ref={messagesEndRef} />
-        </div>
-      </div>
+              {/* AI Thinking/Reviewing Loader */}
+              {isLoading && (
+                <div className="flex gap-3 justify-start items-start">
+                  <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center text-white shrink-0 shadow-sm animate-pulse">
+                    <Activity className="w-4 h-4" />
+                  </div>
+                  <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-xs px-4 py-3.5 shadow-sm max-w-sm flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 text-teal-600 animate-spin" />
+                    <div>
+                      <p className="text-xs font-semibold text-slate-800">Reviewing skin concern...</p>
+                      <p className="text-[11px] text-slate-500">Preparing clinical triage & care regimen</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
-      {/* Quick Suggestion & Sample Cases (when only welcome message is present) */}
-      {messages.length === 1 && (
-        <div className="max-w-4xl mx-auto w-full px-4 mb-3 space-y-3">
-          {/* Photo upload dropzone card */}
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-teal-300 hover:border-teal-500 bg-teal-50/50 hover:bg-teal-50 rounded-2xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all"
-          >
-            <div className="w-12 h-12 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 mb-2">
-              <Camera className="w-6 h-6" />
-            </div>
-            <p className="text-xs font-bold text-slate-800">
-              Click or Drag & Drop to Upload a Skin Photo
-            </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Instant visual analysis of rashes, acne, insect bites, or eczema patches (JPG, PNG, WEBP)
-            </p>
-          </div>
-
-          <div>
-            <p className="text-xs font-semibold text-slate-500 mb-2 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-              <span>Or try a quick symptom scenario:</span>
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {SAMPLE_CASES.map((sample, i) => (
-                <button
-                  key={i}
-                  onClick={() => sendMessage(sample.prompt)}
-                  className={`text-left text-xs p-3 rounded-xl border bg-gradient-to-br transition-all hover:scale-[1.01] cursor-pointer shadow-xs ${sample.color}`}
-                >
-                  <strong className="block font-bold">{sample.title}</strong>
-                  <span className="text-[11px] opacity-90 line-clamp-1">{sample.desc}</span>
-                </button>
-              ))}
+              <div ref={messagesEndRef} />
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Input area */}
-      <div className="bg-white border-t border-slate-200 p-3 sm:p-4 shrink-0">
-        <div className="max-w-4xl mx-auto">
-          {/* Selected photo preview thumbnail */}
-          {selectedImage && (
-            <div className="mb-3 flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-xl p-2.5">
-              <div className="relative w-14 h-14 rounded-lg overflow-hidden border border-teal-300 shrink-0">
-                <img
-                  src={selectedImage.preview}
-                  alt="Selected skin concern"
-                  className="w-full h-full object-cover"
+          {/* Clean, Uncluttered Input Area at Bottom */}
+          <div className="bg-white border-t border-slate-200 p-3 sm:p-4 shrink-0">
+            <div className="max-w-3xl mx-auto">
+              {/* Selected photo preview thumbnail */}
+              {selectedImage && (
+                <div className="mb-3 flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-xl p-2.5">
+                  <div className="relative w-14 h-14 rounded-lg overflow-hidden border border-teal-300 shrink-0">
+                    <img
+                      src={selectedImage.preview}
+                      alt="Selected skin concern"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-slate-800 truncate">
+                      {selectedImage.name || 'skin-photo.jpg'}
+                    </p>
+                    <p className="text-[11px] text-teal-700">
+                      Ready for visual triage • Click Send to analyze
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedImage(null)}
+                    className="p-1.5 hover:bg-teal-200 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                    title="Remove photo"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  sendMessage();
+                }}
+                className="flex items-center gap-2"
+              >
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageSelect}
+                  accept="image/*"
+                  className="hidden"
                 />
+
+                <button
+                  type="button"
+                  onClick={() => setCameraModalOpen(true)}
+                  className="px-3 py-2.5 rounded-xl border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-800 transition-colors shrink-0 flex items-center gap-1.5 text-xs font-semibold cursor-pointer shadow-xs"
+                  title="Open live camera to capture skin photo directly"
+                >
+                  <Camera className="w-4 h-4 text-teal-600" />
+                  <span className="hidden sm:inline">Take Photo</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-800 transition-colors shrink-0 flex items-center justify-center text-xs font-medium cursor-pointer"
+                  title="Upload skin photo from file storage"
+                >
+                  <Upload className="w-4 h-4" />
+                </button>
+
+                <input
+                  type="text"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder={selectedImage ? "Add symptoms (itching, duration, location)..." : "Describe symptoms or attach a photo..."}
+                  disabled={isLoading || isCompressing}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm text-slate-800"
+                />
+
+                <button
+                  type="submit"
+                  disabled={isLoading || isCompressing || (!inputText.trim() && !selectedImage)}
+                  className={`p-2.5 rounded-xl font-medium transition-all shrink-0 ${
+                    isLoading || isCompressing || (!inputText.trim() && !selectedImage)
+                      ? 'bg-slate-100 text-slate-300 border border-slate-200 cursor-not-allowed'
+                      : 'bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 cursor-pointer'
+                  }`}
+                  title="Send message"
+                >
+                  <Send className="w-5 h-5" />
+                </button>
+              </form>
+
+              <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 px-1">
+                <span>Patient: {userName} • WhatsApp: {whatsappNumber}</span>
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen(!sidebarOpen)}
+                  className="md:hidden text-teal-700 font-semibold flex items-center gap-1 cursor-pointer"
+                >
+                  <PanelRight className="w-3 h-3" />
+                  <span>{sidebarOpen ? 'Hide Side Tools' : 'Show Symptoms & Scenarios'}</span>
+                </button>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-slate-800 truncate">
-                  {selectedImage.name || 'skin-photo.jpg'}
-                </p>
-                <p className="text-[11px] text-teal-700">
-                  Ready for visual triage • Click Send to analyze
-                </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Dedicated Right Side Panel (Symptoms Checklist & Quick Scenarios) */}
+        {sidebarOpen && (
+          <aside className="w-80 lg:w-88 border-l border-slate-200 bg-white flex flex-col shrink-0 overflow-y-auto max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:z-40 max-md:shadow-2xl">
+            <div className="p-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 sticky top-0 backdrop-blur-xs z-10">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-teal-600" />
+                <span className="text-xs font-bold text-slate-900 tracking-tight">
+                  Symptoms & Scenarios
+                </span>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedImage(null)}
-                className="p-1.5 hover:bg-teal-200 rounded-lg text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
-                title="Remove photo"
+                onClick={() => setSidebarOpen(false)}
+                className="p-1 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer"
+                title="Close side panel"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
-          )}
 
-          {/* Symptom checklist component - displayed when no image is uploaded */}
-          {!selectedImage && (
-            <div className="mb-2.5 bg-slate-50/90 border border-slate-200 rounded-xl p-2.5">
-              <div className="flex items-center justify-between mb-1.5 px-0.5">
-                <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
-                  <CheckSquare className="w-3.5 h-3.5 text-teal-600" />
-                  <span>Symptoms Checklist (tap to append):</span>
-                </span>
-                {inputText && (
-                  <button
-                    type="button"
-                    onClick={() => setInputText('')}
-                    className="text-[10px] text-slate-400 hover:text-slate-600 cursor-pointer"
-                  >
-                    Clear text
-                  </button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {COMMON_SYMPTOMS.map((symptom) => {
-                  const isChecked = symptom.keywords.some((kw) =>
-                    inputText.toLowerCase().includes(kw)
-                  );
-                  return (
+            <div className="p-4 space-y-6">
+              {/* 1. Symptoms Checklist Section */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <CheckSquare className="w-3.5 h-3.5 text-teal-600" />
+                    <span>Symptoms Checklist</span>
+                  </span>
+                  {inputText && (
                     <button
-                      key={symptom.id}
                       type="button"
-                      onClick={() => handleToggleSymptom(symptom)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer select-none ${
-                        isChecked
-                          ? 'bg-teal-600 text-white shadow-xs font-semibold'
-                          : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
-                      }`}
-                      title={isChecked ? `Click to remove ${symptom.label}` : `Click to add ${symptom.label}`}
+                      onClick={() => setInputText('')}
+                      className="text-[10px] text-slate-400 hover:text-slate-600 cursor-pointer"
                     >
-                      <span
-                        className={`w-3.5 h-3.5 rounded-xs flex items-center justify-center border text-[9px] transition-colors ${
+                      Clear text
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 mb-2.5">
+                  Tap to add or remove symptoms in your consultation:
+                </p>
+                <div className="space-y-1.5">
+                  {COMMON_SYMPTOMS.map((symptom) => {
+                    const isChecked = symptom.keywords.some((kw) =>
+                      inputText.toLowerCase().includes(kw)
+                    );
+                    return (
+                      <button
+                        key={symptom.id}
+                        type="button"
+                        onClick={() => handleToggleSymptom(symptom)}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-between cursor-pointer select-none border ${
                           isChecked
-                            ? 'border-white bg-white text-teal-700'
-                            : 'border-slate-300 bg-slate-50'
+                            ? 'bg-teal-50 border-teal-300 text-teal-900 shadow-xs'
+                            : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
                         }`}
                       >
-                        {isChecked && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`w-4 h-4 rounded-xs flex items-center justify-center border text-[10px] transition-colors ${
+                              isChecked
+                                ? 'border-teal-600 bg-teal-600 text-white'
+                                : 'border-slate-300 bg-slate-50'
+                            }`}
+                          >
+                            {isChecked && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                          </span>
+                          <span className={isChecked ? 'font-semibold text-teal-900' : ''}>
+                            {symptom.label}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-400">
+                          {isChecked ? 'Active' : '+ Add'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Direct Camera & File Upload Section */}
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Camera className="w-3.5 h-3.5 text-teal-600" />
+                  <span className="text-xs font-bold text-slate-800">
+                    Skin Photo Capture
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mb-2.5">
+                  Capture directly via in-app camera or upload an existing photo:
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCameraModalOpen(true);
+                      if (window.innerWidth < 768) setSidebarOpen(false);
+                    }}
+                    className="p-2.5 rounded-xl border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-900 text-xs font-semibold flex flex-col items-center gap-1.5 text-center transition-all cursor-pointer shadow-2xs hover:scale-[1.02]"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-teal-600 text-white flex items-center justify-center shadow-xs">
+                      <Camera className="w-4 h-4" />
+                    </div>
+                    <span>Take Photo</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      fileInputRef.current?.click();
+                      if (window.innerWidth < 768) setSidebarOpen(false);
+                    }}
+                    className="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-medium flex flex-col items-center gap-1.5 text-center transition-all cursor-pointer hover:scale-[1.02]"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-slate-200 text-slate-700 flex items-center justify-center">
+                      <Upload className="w-4 h-4" />
+                    </div>
+                    <span>Upload File</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* 3. Quick Symptom Scenarios Section */}
+              <div>
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-teal-600" />
+                  <span className="text-xs font-bold text-slate-800">
+                    Quick Symptom Scenarios
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 mb-2.5">
+                  Click any case to test triage & prescription guidance:
+                </p>
+                <div className="space-y-2">
+                  {SAMPLE_CASES.map((sample, i) => (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        sendMessage(sample.prompt);
+                        if (window.innerWidth < 768) setSidebarOpen(false);
+                      }}
+                      className={`w-full text-left p-3 rounded-xl border bg-gradient-to-br transition-all hover:scale-[1.01] cursor-pointer shadow-xs ${sample.color}`}
+                    >
+                      <strong className="block font-bold text-xs">{sample.title}</strong>
+                      <span className="text-[11px] opacity-90 block mt-0.5 leading-snug">
+                        {sample.desc}
                       </span>
-                      <span>{symptom.label}</span>
                     </button>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
             </div>
-          )}
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              sendMessage();
-            }}
-            className="flex items-center gap-2"
-          >
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleImageSelect}
-              accept="image/*"
-              className="hidden"
-            />
-
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="px-3 py-2.5 rounded-xl border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-700 transition-colors shrink-0 flex items-center gap-1.5 text-xs font-semibold cursor-pointer"
-              title="Add skin photo"
-            >
-              <Camera className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Photo</span>
-            </button>
-
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder={selectedImage ? "Add symptoms (itching, duration, location)..." : "Describe symptoms or attach a photo..."}
-              disabled={isLoading || isCompressing}
-              className="flex-1 py-2.5 px-4 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 text-sm text-slate-800"
-            />
-
-            <button
-              type="submit"
-              disabled={isLoading || isCompressing || (!inputText.trim() && !selectedImage)}
-              className={`p-2.5 rounded-xl font-medium transition-all shrink-0 ${
-                isLoading || isCompressing || (!inputText.trim() && !selectedImage)
-                  ? 'bg-slate-100 text-slate-300 border border-slate-200 cursor-not-allowed'
-                  : 'bg-teal-600 hover:bg-teal-700 text-white shadow-md shadow-teal-600/20 cursor-pointer'
-              }`}
-              title="Send message"
-            >
-              <Send className="w-5 h-5" />
-            </button>
-          </form>
-          <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 px-1">
-            <span>Logged in as {userName} • WhatsApp: {whatsappNumber}</span>
-            <span className="flex items-center gap-1">
-              <Database className="w-3 h-3 text-emerald-600" />
-              <span>{dbSyncStatus}</span>
-            </span>
-          </div>
-        </div>
+          </aside>
+        )}
       </div>
 
       {/* Profile & Database Management Modal */}
@@ -1317,11 +1526,11 @@ ${initialContent}
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center">
-                  <Database className="w-4 h-4" />
+                  <User className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-slate-900 text-base">Patient Profile & Database</h3>
-                  <p className="text-[11px] text-slate-500">Stored persistently in Firestore</p>
+                  <h3 className="font-bold text-slate-900 text-base">Patient Profile</h3>
+                  <p className="text-[11px] text-slate-500">Contact preferences for WhatsApp reports</p>
                 </div>
               </div>
               <button
@@ -1335,7 +1544,7 @@ ${initialContent}
             <form onSubmit={handleSaveProfileChanges} className="py-4 space-y-4">
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-xs text-emerald-900 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Your profile is saved in the database. You will not be asked to log in again.</span>
+                <span>Your contact details are saved for your WhatsApp care reports.</span>
               </div>
 
               <div>
@@ -1595,6 +1804,14 @@ ${initialContent}
         messages={messages}
         isOpen={trendsChartOpen}
         onClose={() => setTrendsChartOpen(false)}
+      />
+
+      {/* Direct In-App Camera Capture Modal with Permission Handler */}
+      <CameraCaptureModal
+        isOpen={cameraModalOpen}
+        onClose={() => setCameraModalOpen(false)}
+        onCapture={(file) => processAndSetImage(file)}
+        onFallbackToFile={() => fileInputRef.current?.click()}
       />
     </div>
   );

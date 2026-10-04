@@ -17,7 +17,37 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 const HOST = '0.0.0.0';
 
 app.use(cors());
+
+// Guard against Vercel pre-parsed body hanging body-parser
+app.use((req, res, next) => {
+  if (req.body && typeof req.body === 'object') {
+    (req as any)._body = true;
+  }
+  next();
+});
+
 app.use(express.json({ limit: '50mb' }));
+
+// URL Normalization for Vercel Serverless Rewrites
+app.use((req, res, next) => {
+  const matchedPath = (req.headers['x-matched-path'] as string) || (req.headers['x-now-route-matches'] as string);
+  if (matchedPath && (req.url === '/api/index' || req.url === '/api' || req.url.startsWith('/api/index?'))) {
+    req.url = matchedPath;
+  }
+
+  if (req.url && !req.url.startsWith('/api') && (
+    req.url.startsWith('/chat') ||
+    req.url.startsWith('/status') ||
+    req.url.startsWith('/summarize') ||
+    req.url.startsWith('/send-whatsapp') ||
+    req.url.startsWith('/knowledge') ||
+    req.url.startsWith('/user') ||
+    req.url.startsWith('/health')
+  )) {
+    req.url = '/api' + req.url;
+  }
+  next();
+});
 
 // Read skin knowledge base
 const KNOWLEDGE_PATH = path.join(__dirname, 'data', 'skin_knowledge.txt');
@@ -554,7 +584,9 @@ app.post('/api/send-whatsapp', async (req, res) => {
 });
 
 // Server persistent users database
-const USERS_DB_PATH = path.join(process.cwd(), 'data', 'users_db.json');
+const USERS_DB_PATH = process.env.VERCEL
+  ? path.join('/tmp', 'users_db.json')
+  : path.join(process.cwd(), 'data', 'users_db.json');
 
 function getUsersDb(): Record<string, any> {
   try {
