@@ -4,6 +4,12 @@ DermaSnap is a Streamlit chat app based on the MacroSnap workflow. A user enters
 their name and WhatsApp number, uploads a skin-condition photo or describes
 symptoms, gets a cautious AI triage response from Gemini, and can send a summary
 to WhatsApp through Twilio.
+<<<<<<< HEAD
+
+DermaSnap is a Streamlit chat app based on the MacroSnap workflow. A user enters
+their name and WhatsApp number, uploads a skin-condition photo or describes
+symptoms, gets a cautious AI triage response from Gemini, and can send a summary
+to WhatsApp through Twilio.
 
 This is not a medical diagnosis tool. It is designed to provide cautious,
 non-definitive information and encourage professional care.
@@ -81,3 +87,7 @@ The app opens at `http://localhost:8501`.
 
 For local testing, the WhatsApp number you type in the app must be the same
 number that joined the Twilio sandbox.
+=======
+DermaSnap is an AI-powered skin health platform that analyzes skin images to identify possible skin conditions and provides information on symptoms, causes, precautions, and next steps. It generates personalized preliminary care recommendations and integrates with WhatsApp for reports, reminders, and follow-ups.
+
+> > > > > > > b6076977a782570ddd48f9d8afaf3f565d0802b6
