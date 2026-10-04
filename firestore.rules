@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['id', 'name', 'whatsappNumber', 'createdAt'])
+        && data.keys().hasOnly(['id', 'name', 'whatsappNumber', 'createdAt', 'updatedAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 100
+        && data.whatsappNumber is string && data.whatsappNumber.size() > 0 && data.whatsappNumber.size() <= 25
+        && data.createdAt is timestamp
+        && (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidConsultation(data) {
+      return data.keys().hasAll(['id', 'userId', 'patientName', 'createdAt'])
+        && data.keys().hasOnly(['id', 'userId', 'patientName', 'whatsappNumber', 'text', 'summary', 'urgency', 'createdAt'])
+        && data.id is string && data.id.size() <= 128
+        && data.userId is string && data.userId.size() <= 128
+        && data.patientName is string && data.patientName.size() > 0 && data.patientName.size() <= 100
+        && (!('whatsappNumber' in data) || (data.whatsappNumber is string && data.whatsappNumber.size() <= 25))
+        && (!('text' in data) || (data.text is string && data.text.size() <= 5000))
+        && (!('summary' in data) || (data.summary is string && data.summary.size() <= 5000))
+        && (!('urgency' in data) || (data.urgency is string && data.urgency.size() <= 50))
+        && data.createdAt is timestamp;
+    }
+
+    // User profile document
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId)
+        && isValidId(userId)
+        && isValidUserProfile(incoming())
+        && incoming().id == userId
+        && incoming().createdAt == request.time;
+      allow update: if isOwner(userId)
+        && isValidId(userId)
+        && isValidUserProfile(incoming())
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'whatsappNumber', 'updatedAt']);
+      allow delete: if false;
+
+      // Subcollection of user consultations
+      match /consultations/{consultationId} {
+        allow get: if isOwner(userId) && isValidId(consultationId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId)
+          && isValidId(consultationId)
+          && isValidConsultation(incoming())
+          && incoming().userId == userId
+          && incoming().id == consultationId
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/users/$(userId));
+        allow update: if isOwner(userId)
+          && isValidId(consultationId)
+          && isValidConsultation(incoming())
+          && incoming().userId == existing().userId
+          && incoming().id == existing().id
+          && incoming().createdAt == existing().createdAt;
+        allow delete: if isOwner(userId) && isValidId(consultationId);
+      }
+    }
+  }
+}

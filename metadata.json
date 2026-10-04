@@ -1,0 +1,11 @@
+{
+  "name": "DermaSnap",
+  "description": "AI-powered skin-health triage assistant for photo analysis, symptom assessment, and WhatsApp summaries.",
+  "capabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ],
+  "permissions": []
+}
