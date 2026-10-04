@@ -13,10 +13,17 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+// Cloud Run Nginx proxies all traffic to port 3000
+const PORT = 3000;
 const HOST = '0.0.0.0';
 
 app.use(cors());
+
+// Ensure camera permissions are allowed across iframes and browsers
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'camera=*, microphone=*');
+  next();
+});
 
 // Guard against Vercel pre-parsed body hanging body-parser
 app.use((req, res, next) => {
@@ -660,23 +667,115 @@ app.post('/api/user/save', (req, res) => {
   res.json({ success: true, user: userData });
 });
 
+// Server persistent consultations database
+const CONSULTATIONS_DB_PATH = process.env.VERCEL
+  ? path.join('/tmp', 'consultations_db.json')
+  : path.join(process.cwd(), 'data', 'consultations_db.json');
+
+function getConsultationsDb(): any[] {
+  try {
+    if (fs.existsSync(CONSULTATIONS_DB_PATH)) {
+      const content = fs.readFileSync(CONSULTATIONS_DB_PATH, 'utf-8');
+      return JSON.parse(content || '[]');
+    }
+  } catch (err) {
+    console.warn('Error reading consultations db:', err);
+  }
+  return [];
+}
+
+function saveConsultationsDb(consultations: any[]) {
+  try {
+    const dir = path.dirname(CONSULTATIONS_DB_PATH);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(CONSULTATIONS_DB_PATH, JSON.stringify(consultations, null, 2), 'utf-8');
+  } catch (err) {
+    console.warn('Error saving consultations db:', err);
+  }
+}
+
+// GET /api/consultations - Fetch past consultations
+app.get('/api/consultations', (req, res) => {
+  const { deviceId, uid } = req.query as { deviceId?: string; uid?: string };
+  const all = getConsultationsDb();
+
+  let filtered = all;
+  if (uid || deviceId) {
+    filtered = all.filter((c) => {
+      if (uid && c.userId === uid) return true;
+      if (deviceId && c.deviceId === deviceId) return true;
+      return false;
+    });
+  }
+
+  // Sort descending by date
+  filtered.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+  res.json({ consultations: filtered });
+});
+
+// POST /api/consultations/save - Save consultation
+app.post('/api/consultations/save', (req, res) => {
+  const { id, deviceId, uid, patientName, whatsappNumber, text, summary, urgency, createdAt } = req.body;
+  if (!id || !patientName) {
+    return res.status(400).json({ error: 'id and patientName are required' });
+  }
+
+  const all = getConsultationsDb();
+  const newRecord = {
+    id: String(id),
+    userId: uid || null,
+    deviceId: deviceId || null,
+    patientName: String(patientName).trim(),
+    whatsappNumber: whatsappNumber ? String(whatsappNumber).trim() : null,
+    text: text ? String(text).trim() : '',
+    summary: summary ? String(summary).trim() : '',
+    urgency: urgency ? String(urgency).trim() : 'Routine',
+    createdAt: createdAt || new Date().toISOString(),
+  };
+
+  const existingIndex = all.findIndex((c) => c.id === id);
+  if (existingIndex >= 0) {
+    all[existingIndex] = { ...all[existingIndex], ...newRecord };
+  } else {
+    all.unshift(newRecord);
+  }
+
+  saveConsultationsDb(all);
+  res.json({ success: true, consultation: newRecord });
+});
+
+// DELETE /api/consultations/:id - Remove consultation
+app.delete('/api/consultations/:id', (req, res) => {
+  const { id } = req.params;
+  const all = getConsultationsDb();
+  const updated = all.filter((c) => c.id !== id);
+  saveConsultationsDb(updated);
+  res.json({ success: true, removedId: id });
+});
+
 // Setup Vite middleware in dev or static files in production
 async function startServer() {
   const isProduction = process.env.NODE_ENV === 'production';
+  const distPath = path.join(__dirname, 'dist');
+  const hasDist = fs.existsSync(distPath) && fs.existsSync(path.join(distPath, 'index.html'));
 
-  if (!isProduction) {
+  if (isProduction || hasDist) {
+    app.use(express.static(distPath));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api')) {
+        return next();
+      }
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  } else {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(__dirname, 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
   }
 
   app.listen(PORT, HOST, () => {

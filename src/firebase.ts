@@ -23,6 +23,7 @@ import {
   getDoc,
   setDoc,
   updateDoc,
+  deleteDoc,
   collection,
   query,
   orderBy,
@@ -184,6 +185,51 @@ export async function saveConsultationToDatabase(
     });
   } catch (err) {
     handleFirestoreError(err, OperationType.CREATE, path);
+  }
+}
+
+// Fetch all consultation records from Firestore subcollection for user
+export async function fetchConsultationsFromDatabase(uid: string): Promise<StoredConsultation[]> {
+  const collRef = collection(db, 'users', uid, 'consultations');
+  const path = `users/${uid}/consultations`;
+  try {
+    const q = query(collRef, orderBy('createdAt', 'desc'));
+    const snap = await getDocs(q);
+    return snap.docs.map((docSnap) => {
+      const data = docSnap.data();
+      let formattedDate = new Date().toISOString();
+      if (data.createdAt) {
+        if (typeof data.createdAt.toDate === 'function') {
+          formattedDate = data.createdAt.toDate().toISOString();
+        } else if (typeof data.createdAt === 'string') {
+          formattedDate = data.createdAt;
+        }
+      }
+      return {
+        id: docSnap.id,
+        userId: data.userId || uid,
+        patientName: data.patientName || 'Patient',
+        whatsappNumber: data.whatsappNumber || '',
+        text: data.text || '',
+        summary: data.summary || '',
+        urgency: data.urgency || 'Routine',
+        createdAt: formattedDate,
+      };
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.LIST, path);
+    return [];
+  }
+}
+
+// Delete consultation record from Firestore
+export async function deleteConsultationFromDatabase(uid: string, consultationId: string): Promise<void> {
+  const consultationRef = doc(db, 'users', uid, 'consultations', consultationId);
+  const path = `users/${uid}/consultations/${consultationId}`;
+  try {
+    await deleteDoc(consultationRef);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
   }
 }
 

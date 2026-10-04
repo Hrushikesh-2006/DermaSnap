@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SymptomTrendsChart } from './components/SymptomTrendsChart';
 import { CameraCaptureModal } from './components/CameraCaptureModal';
+import { ConsultationHistoryModal } from './components/ConsultationHistoryModal';
 import {
   Activity,
   AlertTriangle,
@@ -14,6 +15,7 @@ import {
   Edit2,
   ExternalLink,
   FileText,
+  History,
   Image as ImageIcon,
   Info,
   Loader2,
@@ -618,11 +620,13 @@ export default function App() {
     }
   };
 
-  const sendMessage = async (customText?: string) => {
+  const sendMessage = async (
+    customText?: string,
+    overrideImage?: { base64: string; mimeType: string; preview: string }
+  ) => {
     const textToSend = customText !== undefined ? customText : inputText;
-    if (!textToSend.trim() && !selectedImage) return;
-
-    const currentImg = selectedImage;
+    const currentImg = overrideImage || selectedImage;
+    if (!textToSend.trim() && !currentImg) return;
     const displayText = textToSend.trim();
 
     const userMessageId = 'msg-' + Date.now();
@@ -1810,7 +1814,28 @@ ${initialContent}
       <CameraCaptureModal
         isOpen={cameraModalOpen}
         onClose={() => setCameraModalOpen(false)}
-        onCapture={(file) => processAndSetImage(file)}
+        onCapture={async (file, sendImmediately) => {
+          setIsCompressing(true);
+          try {
+            const compressed = await compressImage(file);
+            const imgData = {
+              file,
+              preview: compressed.preview,
+              base64: compressed.base64,
+              mimeType: compressed.mimeType,
+              name: file.name || 'skin-photo.jpg',
+            };
+            setSelectedImage(imgData);
+
+            if (sendImmediately) {
+              await sendMessage('Skin concern photo captured for visual triage', imgData);
+            }
+          } catch (err) {
+            console.error('Image processing failed:', err);
+          } finally {
+            setIsCompressing(false);
+          }
+        }}
         onFallbackToFile={() => fileInputRef.current?.click()}
       />
     </div>
